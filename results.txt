@@ -1,0 +1,33 @@
+
+BASELINE (Redis call on every request), limit 10/s, capacity 100, 3 pods
+150-request test: 102 ok, 48 denied
+hey 10s, 20 conns: 23903 req/s, p50 0.7ms, p95 1.6ms, p99 2.3ms
+200 responses: 199, 429 responses: 238872
+Redis calls: ~239000 (1 per request)
+
+NEW GATEWAY (local reservation, batch 20, lease TTL 500ms), limit 10/s, capacity 100, 3 pods
+hey 10s, 20 conns: 51499 req/s, p50 0.3ms, p95 1.0ms, p99 2.1ms
+200 responses: 199, 429 responses: 514834
+Redis evalsha calls: 239625 - 239221 = 404 (baseline: ~239000)
+
+HIGH LIMIT TEST: rate 5000/s, capacity 5000, 3 pods, ~20000 req/s offered, 10s, expected ~55000 allowed
+batch 5:   200s=54840, redis calls=11141, p99=1.1ms
+
+HIGH LIMIT TEST (rate 5000/s, cap 5000, 3 pods, ~20000 req/s offered, 10s, expected ~55000 allowed)
+batch 5:   200s=54840, redis calls=11141, p99=1.1ms
+batch 50:  200s=54566, redis calls=1593,  p99=0.8ms
+batch 500: 200s=54589, redis calls=993,   p99=1.3ms
+Note: tokens per call = 4.9 / 34 / 55, so grants were truncated by an empty Redis bucket under overload.
+
+CONTROL (no failure): 20s, batch 50, rate 5000/s, cap 5000: 200s=104624 (expected ~105000), p99=1.0ms
+
+OUTAGE TEST, NO FALLBACK (Redis scaled to 0 for roughly 15-25 s, 40 s load, batch 50, rate 5000/s):
+200s=82539, 429s=688809, p99=0.9ms, slowest=54ms (healthy run: 203929)
+Gateway denied almost everything while Redis was down.
+
+SANITY CHECK v2 (Redis healthy, 10s, batch 50): 200s=54784 (expected ~55000), p99=0.9ms -> fallback not triggered falsely
+
+FALLBACK CONFIRMED: all 3 pods show fallback_events=1 and mode=normal after the f4 outage test (entered fallback once, recovered).
+Per-pod cumulative allowed (all tests since rollout): 111619 / 98858 / 108164 -> traffic was uneven across pods.
+
+Docker data moved to D:\DockerData. C: free: 5.4 GB -> 13.4 GB. Cluster and pods intact.

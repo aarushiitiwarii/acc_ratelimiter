@@ -1,0 +1,9 @@
+FROM golang:alpine AS build
+WORKDIR /src
+COPY . .
+RUN CGO_ENABLED=0 go build -o /app ./baseline
+
+FROM alpine
+COPY --from=build /app /app
+EXPOSE 8080
+ENTRYPOINT ["/app"]

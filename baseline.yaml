@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: baseline
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: baseline
+  template:
+    metadata:
+      labels:
+        app: baseline
+    spec:
+      containers:
+      - name: baseline
+        image: baseline:v1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+        env:
+        - name: REDIS_ADDR
+          value: "redis:6379"
+        - name: LIMIT_CAPACITY
+          value: "100"
+        - name: LIMIT_RATE
+          value: "10"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: baseline
+spec:
+  selector:
+    app: baseline
+  ports:
+  - port: 80
+    targetPort: 8080
