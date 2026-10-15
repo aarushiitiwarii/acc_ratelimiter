@@ -161,6 +161,21 @@ func getenvInt(k string, def int64) int64 {
 	return def
 }
 
+func cors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-API-Key")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	redisAddr := getenv("REDIS_ADDR", "redis:6379")
 	batch := getenvInt("BATCH_SIZE", 20)
@@ -215,5 +230,5 @@ func main() {
 	})
 
 	fmt.Printf("gateway listening on :8080 redis=%s batch=%d replicas=%.0f\n", redisAddr, batch, replicas)
-	http.ListenAndServe(":8080", nil)
+	http.ListenAndServe(":8080", cors(http.DefaultServeMux))
 }
