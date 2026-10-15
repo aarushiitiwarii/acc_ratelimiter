@@ -1,3 +1,4 @@
+# Upstream microservice that the gateway protects (built from main.go).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -14,8 +15,8 @@ spec:
     spec:
       containers:
       - name: hello
-        image: hello:v1
-        imagePullPolicy: IfNotPresent
+        image: hello:demo
+        imagePullPolicy: Never
         ports:
         - containerPort: 8080
 ---

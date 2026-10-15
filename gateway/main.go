@@ -75,6 +75,7 @@ func cors(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-API-Key, Authorization, X-Admin-Token")
+		w.Header().Set("Access-Control-Expose-Headers", "X-RateLimit-Level, X-Served-By, Retry-After")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -133,14 +134,14 @@ func main() {
 		}
 		fmt.Fprintf(w, "pod=%s mode=%s allowed=%d denied=%d redis_calls=%d fallback_events=%d "+
 			"denied_tenant=%d denied_key=%d denied_ip=%d auth_hits=%d auth_misses=%d "+
-			"buckets=%d evictions=%d tokens_returned=%d reconciled=%d give_dropped=%d\n",
+			"buckets=%d evictions=%d tokens_returned=%d reconciled=%d give_dropped=%d unauthorized=%d fallback_keys=%d\n",
 			host, mode, allowed.Load(), denied.Load(), redisCalls.Load(), fallbackEvents.Load(),
 			deniedBy[LvlTenant].Load(), deniedBy[LvlKey].Load(), deniedBy[LvlIP].Load(),
 			authHits.Load(), authMisses.Load(), l.Buckets(), evictions.Load(),
-			tokensReturned.Load(), reconciled.Load(), giveDropped.Load())
+			tokensReturned.Load(), reconciled.Load(), giveDropped.Load(), unauthorized.Load(), fallbackKeys.Load())
 	})
 
-	// Live limit changes: POST /admin/limits?level=key&cap=50&rate=5[&window_ms=1000&window_limit=40]
+	// Live limit changes: POST /admin/limits?level=key&cap=50&rate=5[&window_ms=1000&window_limit=40&local=true]
 	// applies to this replica immediately (apply to every replica; Redis keeps the shared state).
 	mux.HandleFunc("/admin/limits", func(w http.ResponseWriter, r *http.Request) {
 		if adminToken == "" || r.Header.Get("X-Admin-Token") != adminToken {
@@ -173,11 +174,14 @@ func main() {
 			if v, err := strconv.ParseInt(q.Get("window_limit"), 10, 64); err == nil && v >= 0 {
 				c.WinLimit = v
 			}
+			if v, err := strconv.ParseBool(q.Get("local")); err == nil {
+				c.LocalOnly = v
+			}
 			cfg[lvl] = c
 			l.SetConfig(cfg)
 		}
 		for i, c := range cfg {
-			fmt.Fprintf(w, "%s cap=%v rate=%v window_ms=%d window_limit=%d\n", LvlName[i], c.Cap, c.Rate, c.WinMs, c.WinLimit)
+			fmt.Fprintf(w, "%s cap=%v rate=%v window_ms=%d window_limit=%d local=%v\n", LvlName[i], c.Cap, c.Rate, c.WinMs, c.WinLimit, c.LocalOnly)
 		}
 	})
 
@@ -186,6 +190,8 @@ func main() {
 		//    dropped here, before any Redis access.
 		cl, ok := auth.Authenticate(r)
 		if !ok {
+			unauthorized.Add(1)
+			w.Header().Set("X-Served-By", host)
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -201,10 +207,12 @@ func main() {
 			deniedBy[lvl].Add(1)
 			w.Header().Set("Retry-After", "1")
 			w.Header().Set("X-RateLimit-Level", LvlName[lvl])
+			w.Header().Set("X-Served-By", host)
 			http.Error(w, "too many requests", http.StatusTooManyRequests)
 			return
 		}
 		allowed.Add(1)
+		w.Header().Set("X-Served-By", host)
 		// 3. Proxy upstream (or answer directly when no upstream is configured).
 		if proxy != nil {
 			r.Header.Set("X-Tenant-ID", cl.Tenant)

@@ -1,0 +1,79 @@
+# Demo console: serves the dashboard, generates load inside the cluster,
+# applies live limits to every gateway pod and can stop/start Redis.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: console
+---
+# Only what the outage demo needs: read and scale the redis Deployment.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: console
+rules:
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  resourceNames: ["redis", "gateway", "baseline", "hello"]
+  verbs: ["get"]
+- apiGroups: ["apps"]
+  resources: ["deployments/scale"]
+  resourceNames: ["redis"]
+  verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: console
+subjects:
+- kind: ServiceAccount
+  name: console
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: console
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: console
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: console
+  template:
+    metadata:
+      labels:
+        app: console
+    spec:
+      serviceAccountName: console
+      containers:
+      - name: console
+        image: console:demo
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 9000
+        env:
+        - {name: GATEWAY_URL, value: "http://gateway/"}
+        - {name: GATEWAY_PODS, value: "gateway-pods"}
+        - {name: BASELINE_URL, value: "http://baseline/"}
+        - {name: BASELINE_PODS, value: "baseline-pods"}
+        - {name: DIRECT_URL, value: "http://hello/"}
+        - {name: REDIS_ADDR, value: "redis:6379"}
+        - name: NAMESPACE
+          valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
+        - name: AUTH_SECRET
+          valueFrom: {secretKeyRef: {name: rateguard, key: auth-secret}}
+        - name: ADMIN_TOKEN
+          valueFrom: {secretKeyRef: {name: rateguard, key: admin-token}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: console
+spec:
+  selector:
+    app: console
+  ports:
+  - port: 80
+    targetPort: 9000

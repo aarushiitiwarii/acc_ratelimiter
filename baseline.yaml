@@ -1,3 +1,4 @@
+# Baseline for comparison: one synchronous Redis call on EVERY request.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -14,17 +15,14 @@ spec:
     spec:
       containers:
       - name: baseline
-        image: baseline:v1
-        imagePullPolicy: IfNotPresent
+        image: baseline:demo
+        imagePullPolicy: Never
         ports:
         - containerPort: 8080
         env:
-        - name: REDIS_ADDR
-          value: "redis:6379"
-        - name: LIMIT_CAPACITY
-          value: "100"
-        - name: LIMIT_RATE
-          value: "10"
+        - {name: REDIS_ADDR, value: "redis:6379"}
+        - {name: LIMIT_CAPACITY, value: "100"}
+        - {name: LIMIT_RATE, value: "50"}
 ---
 apiVersion: v1
 kind: Service
@@ -35,4 +33,16 @@ spec:
     app: baseline
   ports:
   - port: 80
+    targetPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: baseline-pods
+spec:
+  clusterIP: None
+  selector:
+    app: baseline
+  ports:
+  - port: 8080
     targetPort: 8080

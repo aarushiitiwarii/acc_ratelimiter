@@ -1,3 +1,6 @@
+# RateGuard edge gateway: 3 replicas in front of the "hello" upstream.
+# Secrets (AUTH_SECRET, ADMIN_TOKEN) come from the "rateguard" Secret that
+# deploy.bat creates. Image is built locally and loaded with `kind load`.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -14,21 +17,36 @@ spec:
     spec:
       containers:
       - name: gateway
-        image: gateway:v1
-        imagePullPolicy: IfNotPresent
+        image: gateway:demo
+        imagePullPolicy: Never
         ports:
         - containerPort: 8080
+        readinessProbe:
+          httpGet: {path: /healthz, port: 8080}
+          periodSeconds: 2
         env:
-        - name: REDIS_ADDR
-          value: "redis:6379"
-        - name: LIMIT_CAPACITY
-          value: "100"
-        - name: LIMIT_RATE
-          value: "10"
-        - name: BATCH_SIZE
-          value: "20"
-        - name: LEASE_TTL_MS
-          value: "500"
+        - {name: REDIS_ADDR, value: "redis:6379"}
+        - {name: REPLICAS, value: "3"}           # keep equal to spec.replicas (sizes fallback shares)
+        - {name: UPSTREAM_URL, value: "http://hello"}
+        # Limits (change live from the console / POST /admin/limits)
+        - {name: TENANT_CAP, value: "400"}
+        - {name: TENANT_RATE, value: "200"}
+        - {name: KEY_CAP, value: "100"}
+        - {name: KEY_RATE, value: "50"}
+        - {name: IP_CAP, value: "60"}
+        - {name: IP_RATE, value: "30"}
+        - {name: IP_LOCAL, value: "true"}            # per-node IP share, no Redis traffic for sparse IPs
+        - {name: WINDOW_MS, value: "1000"}
+        # L1 reservations
+        - {name: BATCH_SIZE, value: "50"}
+        - {name: LEASE_TTL_MS, value: "500"}
+        # The demo load generator spoofs X-Forwarded-For to simulate distributed
+        # clients. Only enable this behind a trusted CDN / load balancer.
+        - {name: TRUST_XFF, value: "true"}
+        - name: AUTH_SECRET
+          valueFrom: {secretKeyRef: {name: rateguard, key: auth-secret}}
+        - name: ADMIN_TOKEN
+          valueFrom: {secretKeyRef: {name: rateguard, key: admin-token}}
 ---
 apiVersion: v1
 kind: Service
@@ -39,4 +57,17 @@ spec:
     app: gateway
   ports:
   - port: 80
+    targetPort: 8080
+---
+# Headless service: resolves to every gateway pod IP (per-pod /stats, /admin/limits).
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-pods
+spec:
+  clusterIP: None
+  selector:
+    app: gateway
+  ports:
+  - port: 8080
     targetPort: 8080

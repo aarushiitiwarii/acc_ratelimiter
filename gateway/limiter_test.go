@@ -271,6 +271,42 @@ func TestAuth(t *testing.T) {
 	}
 }
 
+// Live limit change: limits travel with every lease call, so a new config is
+// enforced from the next lease without restarting pods or touching Redis.
+func TestLiveLimitChange(t *testing.T) {
+	rdb := rdbOrSkip(t)
+	// Lower: a generous key limit is cut to cap 3; Redis clamps the bucket.
+	l := NewLimiter(rdb, cfgOf(1000, 0.01, 1e6, 1e6), 1, 1, 500*time.Millisecond, 1000)
+	defer l.Close()
+	ten, ip := uniq("ten"), uniq("ip")
+	k := keys(ten, "A", ip)
+	if got := count(l, 10, k); got != 10 {
+		t.Fatalf("before change: want 10 allowed, got %d", got)
+	}
+	c := l.Config()
+	c[LvlKey].Cap, c[LvlKey].Rate = 3, 0.01
+	l.SetConfig(c)
+	// at most one token can still sit in the local lease (batch 1)
+	if got := count(l, 20, k); got < 3 || got > 4 {
+		t.Fatalf("after lowering to cap 3: want 3..4 allowed, got %d", got)
+	}
+
+	// Raise: an exhausted bucket refills at the new, higher rate.
+	l2 := NewLimiter(rdb, cfgOf(5, 0.01, 1e6, 1e6), 1, 1, 500*time.Millisecond, 1000)
+	defer l2.Close()
+	k2 := keys(uniq("ten"), "A", uniq("ip"))
+	if got := count(l2, 20, k2); got != 5 {
+		t.Fatalf("before change: want 5, got %d", got)
+	}
+	c = l2.Config()
+	c[LvlKey].Cap, c[LvlKey].Rate = 50, 100
+	l2.SetConfig(c)
+	time.Sleep(300 * time.Millisecond) // ~30 tokens at 100/s
+	if got := count(l2, 100, k2); got < 20 || got > 40 {
+		t.Fatalf("after raising rate to 100/s for 300ms: want ~30 allowed, got %d", got)
+	}
+}
+
 // Latency added by the in-process decision path (cache-hit fast path).
 func BenchmarkAllowParallel(b *testing.B) {
 	rdb := rdbOrSkip(b)

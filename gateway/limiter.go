@@ -32,7 +32,7 @@ var (
 	deniedBy                        [3]atomic.Int64
 	authHits, authMisses, evictions atomic.Int64
 	tokensReturned, giveDropped     atomic.Int64
-	reconciled                      atomic.Int64
+	reconciled, unauthorized        atomic.Int64
 )
 
 // LevelCfg is the limit for one level of the hierarchy.

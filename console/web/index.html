@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RateGuard Console</title>
+<style>
+:root{
+  color-scheme:light;
+  --page:#f6f6f3; --card:#ffffff; --surface:#fbfbf9; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+  --grid:#e7e6e0; --axis:#c3c2b7; --border:rgba(11,11,11,.10); --hover:#f1f1ee;
+  --brand:#13152B; --brand-ink:#ffffff; --accent:#0623C9;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a;
+  --good:#0ca30c; --good-text:#006300; --serious:#ec835a; --crit:#d03b3b;
+  --good-bg:#e9f6e9; --crit-bg:#fbeaea; --warn-bg:#fdf3dc; --info-bg:#eef2fb;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --page:#0d0d0d; --card:#1a1a19; --surface:#151514; --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10); --hover:#242422;
+    --brand:#e8e9f5; --brand-ink:#13152B; --accent:#7f93ff;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+    --good-text:#0ca30c; --good-bg:#132613; --crit-bg:#2d1515; --warn-bg:#2b2414; --info-bg:#171c2b;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --page:#0d0d0d; --card:#1a1a19; --surface:#151514; --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10); --hover:#242422;
+  --brand:#e8e9f5; --brand-ink:#13152B; --accent:#7f93ff;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+  --good-text:#0ca30c; --good-bg:#132613; --crit-bg:#2d1515; --warn-bg:#2b2414; --info-bg:#171c2b;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--page);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+button,input{font:inherit;color:inherit}
+header{position:sticky;top:0;z-index:10;background:var(--card);border-bottom:1px solid var(--border)}
+.hbar{max-width:1320px;margin:0 auto;padding:12px 24px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.logo{display:flex;gap:10px;align-items:center;margin-right:8px}
+.logo .mark{width:26px;height:26px;background:var(--brand);display:grid;place-items:center}
+.logo .mark i{width:8px;height:8px;background:var(--brand-ink);display:block}
+.logo b{font-size:16px}.logo span{color:var(--muted);font-size:13px;margin-left:4px}
+.status{display:flex;gap:8px;flex-wrap:wrap}
+.pill{display:inline-flex;gap:7px;align-items:center;border:1px solid var(--border);border-radius:99px;padding:4px 11px;font-size:12.5px;background:var(--surface);white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--good);flex:none}
+.dot.warn{background:var(--serious)}.dot.bad{background:var(--crit)}.dot.idle{background:var(--axis)}
+.dot.live{animation:p 1.2s infinite}@keyframes p{50%{opacity:.35}}
+.grow{flex:1}
+.btn{cursor:pointer;border:1px solid var(--border);background:var(--card);padding:7px 13px;border-radius:8px;font-weight:500;white-space:nowrap}
+.btn:hover{background:var(--hover)}
+.btn.primary{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+.btn.primary:hover{opacity:.9}
+.btn.danger{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 45%,transparent)}
+.btn.small{padding:3px 10px;font-size:12.5px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+main{max-width:1320px;margin:0 auto;padding:20px 24px 40px;display:grid;gap:16px}
+.kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+.kpi small{display:block;color:var(--muted);font-size:12px}
+.kpi b{display:block;font-size:24px;letter-spacing:-.01em;font-variant-numeric:tabular-nums;margin-top:2px}
+.kpi em{display:block;font-style:normal;color:var(--muted);font-size:11.5px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi em.ok{color:var(--good-text)}.kpi em.bad{color:var(--crit)}
+.row{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:16px;align-items:start}
+main>*{min-width:0}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;min-width:0;overflow-x:auto}
+.card h2{font-size:14px;margin:0;display:flex;align-items:center;gap:10px}
+.card .head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.card .sub{color:var(--muted);font-size:12.5px;font-weight:400}
+table{border-collapse:collapse;width:100%}
+th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:8px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;vertical-align:middle}
+tr:last-child td{border-bottom:0}
+td.n,th.n{text-align:right;white-space:nowrap}
+.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12.5px}
+.muted{color:var(--muted)}.ink2{color:var(--ink2)}
+.nodes td{padding:7px 4px}
+.tag{display:inline-flex;gap:6px;align-items:center;font-size:12.5px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--ink2);margin-bottom:6px}
+.legend i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.legend b{color:var(--ink);font-weight:600;margin-left:4px;font-variant-numeric:tabular-nums}
+.chart{position:relative}.chart svg{display:block;width:100%;overflow:visible}
+.tip{position:absolute;pointer-events:none;background:var(--card);border:1px solid var(--border);box-shadow:0 4px 14px rgba(0,0,0,.12);border-radius:7px;padding:7px 9px;font-size:12px;min-width:160px;z-index:3;display:none}
+.tip div{display:flex;justify-content:space-between;gap:12px}.tip .t{color:var(--muted);margin-bottom:3px}
+.tip i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
+.events{font-size:12.5px;margin-top:6px}
+.events div{display:grid;grid-template-columns:62px 1fr;gap:8px;padding:4px 0;border-top:1px solid var(--border)}
+.events time{color:var(--muted);font-variant-numeric:tabular-nums}
+.ev-warn{color:var(--crit)}.ev-ok{color:var(--good-text)}
+.policy input{width:90px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface)}
+.scope{font-weight:600}
+.enf{font-size:12px;color:var(--ink2)}
+.minibar{display:inline-block;height:6px;border-radius:3px;background:var(--s2);vertical-align:middle;margin-right:6px;min-width:2px}
+.checks td{padding:11px 8px}
+.st{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:99px;white-space:nowrap}
+.st svg{width:12px;height:12px}
+.st.pass{background:var(--good-bg);color:var(--good-text)}
+.st.fail{background:var(--crit-bg);color:var(--crit)}
+.st.info{background:var(--info-bg);color:var(--accent)}
+.st.running{background:var(--warn-bg);color:var(--ink)}
+.st.none{background:var(--hover);color:var(--muted)}
+.check-name{font-weight:600}
+.check-head{margin-top:2px}
+.check-det{color:var(--muted);font-size:12.5px;margin-top:2px}
+/* drawer */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:20;display:none}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(400px,100%);background:var(--card);border-left:1px solid var(--border);z-index:21;display:none;flex-direction:column}
+.open .scrim{display:block}.open .drawer{display:flex;animation:slidein .18s ease-out}
+@keyframes slidein{from{transform:translateX(40px);opacity:0}}
+.drawer .dh{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid var(--border)}
+.drawer .dh b{font-size:15px}
+.drawer .db{padding:16px 18px;overflow:auto;display:grid;gap:22px}
+.drawer h3{font-size:13px;margin:0 0 10px;color:var(--ink2)}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted)}
+.form input{padding:6px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:13.5px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--brand);color:var(--brand-ink);padding:9px 14px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;z-index:30;pointer-events:none;max-width:90vw}
+.toast.show{opacity:1}
+@media (max-width:1100px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.row{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:640px){
+  .hbar,main{padding-left:16px;padding-right:16px}
+  .hbar{gap:10px}.status{width:100%;order:3}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .logo span{display:none}
+  .policy th:nth-child(4),.policy td:nth-child(4),.policy th:nth-child(6),.policy td:nth-child(6){display:none}
+  .checks .when{display:none}
+}
+</style>
+</head>
+<body>
+<header><div class="hbar">
+  <div class="logo"><div class="mark"><i></i></div><b>RateGuard</b><span>Edge Gateway Console</span></div>
+  <div class="status" id="status"></div>
+  <div class="grow"></div>
+  <span class="pill" id="activity" hidden></span>
+  <button class="btn danger small" id="stop" hidden>Stop</button>
+  <button class="btn" id="open-traffic">Test traffic</button>
+  <button class="btn primary" id="run-all">Run all checks</button>
+  <button class="btn small" id="theme" title="Theme">auto</button>
+</div></header>
+
+<main>
+  <section class="kpis">
+    <div class="kpi"><small>Requests / s</small><b id="k-total">–</b><em>all edge nodes</em></div>
+    <div class="kpi"><small>Allowed / s</small><b id="k-allowed">–</b><em>forwarded to upstream</em></div>
+    <div class="kpi"><small>Throttled / s</small><b id="k-denied">–</b><em>HTTP 429</em></div>
+    <div class="kpi"><small>Blocked / s</small><b id="k-unauth">–</b><em>HTTP 401, invalid credential</em></div>
+    <div class="kpi"><small>Redis calls / request</small><b id="k-rpr">–</b><em id="k-rpr-sub">baseline design: 1.00</em></div>
+    <div class="kpi"><small>Added latency p99</small><b id="k-lat">–</b><em id="k-lat-sub">target &lt; 5 ms</em></div>
+  </section>
+
+  <section class="row">
+    <div class="card"><div class="head"><h2>Traffic <span class="sub">requests per second, last 2 minutes</span></h2></div><div id="chart"></div></div>
+    <div class="card">
+      <div class="head"><h2>Edge nodes</h2><span class="sub" id="nodes-sub"></span></div>
+      <table class="nodes"><thead><tr><th>Node</th><th>State</th><th class="n">Allowed/s</th><th class="n">Redis/s</th></tr></thead><tbody id="nodes"></tbody></table>
+      <div class="head" style="margin:16px 0 0"><h2>Shared state</h2></div>
+      <table class="nodes"><tbody id="redis"></tbody></table>
+      <div class="head" style="margin:16px 0 0"><h2>Activity</h2></div>
+      <div class="events" id="events"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="head"><h2>Rate-limit policies <span class="sub">every request must pass all three; applied live to all edge nodes</span></h2>
+      <button class="btn small" id="reset-limits">Reset to defaults</button></div>
+    <table class="policy"><thead><tr><th>Scope</th><th class="n">Burst</th><th class="n">Refill / s</th><th class="n">Window cap</th><th>Enforcement</th><th class="n">Throttled now</th><th></th></tr></thead><tbody id="policies"></tbody></table>
+  </section>
+
+  <section class="card">
+    <div class="head"><h2>Verification <span class="sub">problem-statement requirements, measured on this cluster</span></h2></div>
+    <table class="checks"><tbody id="checks"></tbody></table>
+  </section>
+</main>
+
+<div id="drawer-root">
+  <div class="scrim" id="scrim"></div>
+  <aside class="drawer" aria-label="Test traffic">
+    <div class="dh"><b>Test traffic</b><button class="btn small" id="close-traffic">Close</button></div>
+    <div class="db">
+      <div>
+        <h3>Generate traffic</h3>
+        <div class="chips" style="margin-bottom:12px">
+          <button class="btn small" data-preset="steady">Steady 1,000/s</button>
+          <button class="btn small" data-preset="burst">Burst (max rate)</button>
+          <button class="btn small" data-preset="flood">Forged-key flood</button>
+        </div>
+        <div class="form" id="tform">
+          <label>Rate (req/s, 0 = max)<input data-k="qps" value="1000"></label>
+          <label>Duration (s, 0 = until stopped)<input data-k="duration_s" value="0"></label>
+          <label>Tenants<input data-k="tenants" value="4"></label>
+          <label>API keys per tenant<input data-k="keys" value="4"></label>
+          <label>Client IPs<input data-k="ips" value="2000"></label>
+          <label>Forged keys (%)<input data-k="bad_pct" value="0"></label>
+        </div>
+        <div class="actions" style="margin-top:12px"><button class="btn primary" id="t-start">Start</button><button class="btn" id="t-stop">Stop</button></div>
+      </div>
+      <div>
+        <h3>Failure injection</h3>
+        <div class="actions"><button class="btn danger" id="kill">Stop Redis</button><button class="btn" id="restore">Start Redis</button><button class="btn" id="flush">Flush Redis</button></div>
+        <p class="muted" style="font-size:12.5px;margin:8px 0 0">Scales the Redis deployment through the Kubernetes API. Edge nodes switch to local enforcement until it returns.</p>
+      </div>
+    </div>
+  </aside>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $ = (s, el=document) => el.querySelector(s);
+const $$ = (s, el=document) => [...el.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt = (n, d=0) => {
+  if (n == null || isNaN(n)) return "–";
+  const a = Math.abs(n);
+  if (a >= 1e6) return (n/1e6).toFixed(a >= 1e7 ? 0 : 1) + "M";
+  if (a >= 1e4) return (n/1e3).toFixed(a >= 1e5 ? 0 : 1) + "k";
+  return n.toLocaleString(undefined, {maximumFractionDigits:d});
+};
+const tclock = t => new Date(t).toLocaleTimeString([], {hour12:false});
+const ago = t => { const s = Math.round((Date.now() - t) / 1000); return s < 60 ? `${s}s ago` : s < 3600 ? `${Math.round(s/60)} min ago` : tclock(t); };
+function toast(m){ const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 2600); }
+async function api(path, body){
+  const r = await fetch(path, body === undefined ? {cache:"no-store"} : {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+  if (!r.ok) { const m = await r.text(); toast("Error: " + m); throw new Error(m); }
+  return r.json();
+}
+const ICON = {
+  pass:'<svg viewBox="0 0 12 12"><path d="M2.5 6.2l2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  fail:'<svg viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  info:'<svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6 5.4v3M6 3.6h.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+};
+const LEVELS = ["tenant","key","ip"], SCOPE = {tenant:"Tenant", key:"API key", ip:"Client IP"};
+
+// ---------------------------------------------------------------- chart
+function lineChart(el, opt){
+  const H = 250, M = {l:50, r:12, t:10, b:24};
+  const W = Math.max(280, el.clientWidth);
+  const now = opt.now, win = 120000, t0 = now - win;
+  const pts = (opt.data || []).filter(d => d.t >= t0);
+  let ymax = 0;
+  for (const d of pts) for (const s of opt.series) ymax = Math.max(ymax, +d[s.key] || 0);
+  ymax = niceMax(ymax || 1);
+  const X = t => M.l + (t - t0) / win * (W - M.l - M.r), Y = v => M.t + (1 - v / ymax) * (H - M.t - M.b);
+  let g = "";
+  for (let i = 0; i <= 4; i++) { const v = ymax*i/4, y = Y(v);
+    g += `<line x1="${M.l}" x2="${W-M.r}" y1="${y}" y2="${y}" stroke="var(${i?"--grid":"--axis"})"/><text x="${M.l-8}" y="${y+4}" text-anchor="end" font-size="11" fill="var(--muted)">${fmt(v, ymax < 10 ? 1 : 0)}</text>`; }
+  for (let s = 0; s <= 120; s += 30) g += `<text x="${X(t0+s*1000)}" y="${H-6}" text-anchor="middle" font-size="11" fill="var(--muted)">${s === 120 ? "now" : "-" + (120-s) + "s"}</text>`;
+  for (const e of opt.events || []) {
+    if (e.t < t0 || !["warn","ok","limit"].includes(e.kind)) continue;
+    const x = X(e.t);
+    g += `<line x1="${x}" x2="${x}" y1="${M.t}" y2="${H-M.b}" stroke="var(--muted)" stroke-dasharray="2 3"><title>${esc(tclock(e.t)+"  "+e.msg)}</title></line>`;
+    g += `<path d="M${x-4} ${M.t-3}h8l-4 5z" fill="var(${e.kind==="warn"?"--crit":e.kind==="ok"?"--good":"--accent"})"><title>${esc(e.msg)}</title></path>`;
+  }
+  for (const s of opt.series) {
+    let d = "", gap = true, prev = null;
+    for (const p of pts) { const v = p[s.key];
+      if (v == null || (prev && p.t - prev > 3500)) gap = true;
+      if (v == null) { prev = p.t; continue; }
+      d += (gap ? "M" : "L") + X(p.t).toFixed(1) + " " + Y(v).toFixed(1); gap = false; prev = p.t; }
+    g += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  }
+  g += `<g class="hov" style="display:none"><line class="cx" y1="${M.t}" y2="${H-M.b}" stroke="var(--axis)"/>${opt.series.map(s=>`<circle r="4" fill="${s.color}" stroke="var(--card)" stroke-width="2"/>`).join("")}</g>`;
+  g += `<rect class="hit" x="${M.l}" y="0" width="${Math.max(0,W-M.l-M.r)}" height="${H}" fill="transparent"/>`;
+  if (!el._init) { el.innerHTML = `<div class="legend"></div><div class="chart"><svg></svg><div class="tip"></div></div>`; el._init = true; }
+  const last = pts[pts.length-1] || {};
+  $(".legend", el).innerHTML = opt.series.map(s => `<span><i style="background:${s.color}"></i>${esc(s.label)}<b>${fmt(last[s.key])}</b></span>`).join("");
+  const svg = $("svg", el); svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("height", H); svg.innerHTML = g;
+  const hov = $(".hov", svg), tip = $(".tip", el);
+  $(".hit", svg).addEventListener("mousemove", ev => {
+    if (!pts.length) return;
+    const r = svg.getBoundingClientRect(), t = t0 + ((ev.clientX - r.left) * W / r.width - M.l) / (W - M.l - M.r) * win;
+    let best = pts[0]; for (const p of pts) if (Math.abs(p.t - t) < Math.abs(best.t - t)) best = p;
+    const bx = X(best.t); hov.style.display = "";
+    $(".cx", hov).setAttribute("x1", bx); $(".cx", hov).setAttribute("x2", bx);
+    $$("circle", hov).forEach((c, i) => { c.setAttribute("cx", bx); c.setAttribute("cy", Y(best[opt.series[i].key] || 0)); });
+    tip.innerHTML = `<div class="t">${tclock(best.t)}</div>` + opt.series.map(s => `<div><span><i style="background:${s.color}"></i>${esc(s.label)}</span><b>${fmt(best[s.key], 1)}</b></div>`).join("");
+    tip.style.display = "block"; tip.style.left = Math.min(bx * r.width / W + 12, r.width - tip.offsetWidth - 4) + "px"; tip.style.top = "8px";
+  });
+  $(".hit", svg).addEventListener("mouseleave", () => { hov.style.display = "none"; tip.style.display = "none"; });
+}
+function niceMax(v){ const p = Math.pow(10, Math.floor(Math.log10(v))); for (const m of [1,1.2,1.5,2,2.5,3,4,5,6,8,10]) if (m*p >= v) return m*p; return 10*p; }
+
+// ---------------------------------------------------------------- render
+let state = null, editing = null;
+function render(){
+  const s = state; if (!s) return;
+  const h = s.history || [], last = h[h.length-1] || {};
+  const pods = s.pods || [], up = pods.filter(p => p.up), fb = up.filter(p => p.mode === "fallback");
+  const cur = s.current, running = cur && cur.running;
+
+  // header status
+  const nodeDot = !up.length ? "bad" : fb.length ? "warn" : "";
+  $("#status").innerHTML =
+    `<span class="pill"><span class="dot ${nodeDot}"></span>${up.length}/${pods.length || 3} edge nodes${fb.length ? ` · ${fb.length} local fallback` : " healthy"}</span>` +
+    `<span class="pill"><span class="dot ${s.redis.up ? "" : "bad"}"></span>Redis ${s.redis.up ? "up" : s.redis.desired ? "starting" : "down"}</span>`;
+  const act = s.job ? s.job : running ? `Test traffic · ${fmt(cur.rps)} req/s` : "";
+  $("#activity").hidden = !act; $("#activity").innerHTML = `<span class="dot live"></span>${esc(act)}`;
+  $("#stop").hidden = !act;
+  $("#run-all").disabled = !!s.job;
+
+  // KPIs (the last complete second)
+  const total = (last.allowed||0) + (last.denied||0) + (last.unauth||0);
+  $("#k-total").textContent = fmt(total);
+  $("#k-allowed").textContent = fmt(last.allowed);
+  $("#k-denied").textContent = fmt(last.denied);
+  $("#k-unauth").textContent = fmt(last.unauth);
+  // Redis calls per authenticated request, averaged over the last 10 s with traffic
+  let rc = 0, rq = 0; for (const x of h.slice(-10)) { rc += x.redis_calls || 0; rq += (x.allowed||0) + (x.denied||0); }
+  $("#k-rpr").textContent = rq > 50 ? (rc / rq).toFixed(3) : "–";
+  $("#k-rpr-sub").textContent = rq > 50 ? `vs 1.00 for a Redis-per-request design` : "no traffic";
+  const lat = (s.report || {}).latency;
+  const m = lat && lat.status !== "running" && /\+([\d.]+) ms p99/.exec(lat.headline);
+  $("#k-lat").textContent = m ? "+" + (+m[1]).toFixed(2) + " ms" : "–";
+  const ls = $("#k-lat-sub");
+  ls.textContent = m ? (lat.status === "pass" ? "under the 5 ms target" : "over the 5 ms target") + " · " + ago(lat.at) : "run the latency check";
+  ls.className = m ? (lat.status === "pass" ? "ok" : "bad") : "";
+
+  lineChart($("#chart"), {data:h, now:s.now, events:s.events, series:[
+    {key:"allowed", label:"Allowed", color:"var(--s1)"},
+    {key:"denied", label:"Throttled (429)", color:"var(--s2)"},
+    {key:"unauth", label:"Blocked (401)", color:"var(--s3)"}]});
+
+  // nodes + redis
+  $("#nodes-sub").textContent = "L1 token reservations";
+  $("#nodes").innerHTML = pods.map(p => {
+    const st = !p.up ? ["bad","unreachable"] : p.mode === "fallback" ? ["warn","local fallback"] : ["","normal"];
+    return `<tr><td class="mono">${esc((p.name||p.ip).replace(/^gateway-[^-]+-/, "edge-"))}</td><td><span class="tag"><span class="dot ${st[0]}"></span>${st[1]}</span></td>
+      <td class="n">${fmt(p.rates && p.rates.allowed)}</td><td class="n">${fmt(p.rates && p.rates.redis_calls)}</td></tr>`;
+  }).join("") || `<tr><td class="muted">No edge nodes found</td></tr>`;
+  $("#redis").innerHTML = `<tr><td>Redis</td><td><span class="tag"><span class="dot ${s.redis.up ? "" : "bad"}"></span>${s.redis.up ? "up" : s.redis.desired ? "starting" : "down"}</span></td>
+    <td class="n">${fmt(s.redis.ops_sec)} ops/s</td><td class="n">${fmt(s.redis.keys)} keys</td></tr>`;
+  $("#events").innerHTML = (s.events || []).filter(e => e.kind !== "load").slice(-6).reverse()
+    .map(e => `<div><time>${tclock(e.t)}</time><span class="ev-${e.kind}">${esc(e.msg.replace(/gateway-[a-z0-9]+-/g, "edge-"))}</span></div>`).join("") || `<div><span></span><span class="muted">No activity yet</span></div>`;
+
+  // policies
+  const den = [last.den_tenant, last.den_key, last.den_ip], dmax = Math.max(1, ...den.map(v => v || 0));
+  if (editing === null) $("#policies").innerHTML = LEVELS.map((l, i) => {
+    const c = s.limits[i];
+    return `<tr><td class="scope">${SCOPE[l]}</td><td class="n">${fmt(c.cap)}</td><td class="n">${fmt(c.rate)}</td>
+      <td class="n">${c.window_limit ? fmt(c.window_limit) + " / " + c.window_ms + " ms" : "off"}</td>
+      <td class="enf">${c.local ? "Per node (local share)" : "Global (Redis-backed leases)"}</td>
+      <td class="n">${den[i] >= 1 ? `<span class="minibar" style="width:${Math.round(den[i]/dmax*60)}px"></span>` : ""}${fmt(den[i])}/s</td>
+      <td class="n"><button class="btn small" data-edit="${i}">Edit</button></td></tr>`;
+  }).join("");
+
+  // verification
+  const rep = s.report || {};
+  $("#checks").innerHTML = (s.checks || []).map(id => {
+    const r = rep[id], st = r ? r.status : "none";
+    const label = {pass:"Pass", fail:"Fail", info:"Measured", running:"Running", none:"Not run"}[st];
+    return `<tr><td style="width:110px"><span class="st ${st}">${st === "running" ? '<span class="dot live" style="background:currentColor"></span>' : ICON[st] || ""}${label}</span></td>
+      <td><div class="check-name">${esc(s.check_names[id])}</div>
+        ${r && r.headline ? `<div class="check-head">${esc(r.headline)}</div>` : ""}
+        ${r && r.detail ? `<div class="check-det">${esc(r.detail)}</div>` : ""}</td>
+      <td class="n muted when" style="width:90px">${r && st !== "running" ? ago(r.at) : ""}</td>
+      <td class="n" style="width:70px"><button class="btn small" data-check="${id}" ${s.job ? "disabled" : ""}>Run</button></td></tr>`;
+  }).join("");
+
+  // drawer buttons
+  $("#kill").disabled = !s.kube || s.redis.desired === 0 || !!s.job;
+  $("#restore").disabled = !s.kube || s.redis.desired !== 0 || !!s.job;
+  $("#t-stop").disabled = !running;
+}
+
+// ---------------------------------------------------------------- actions
+const PRESETS = {
+  steady:{qps:1000, duration_s:0, tenants:4, keys:4, ips:2000, bad_pct:0},
+  burst:{qps:0, duration_s:10, tenants:4, keys:4, ips:5000, bad_pct:0},
+  flood:{qps:3000, duration_s:10, tenants:1, keys:1, ips:5000, bad_pct:100},
+};
+function bind(){
+  const root = $("#drawer-root");
+  const open = v => document.body.classList.toggle("open", v);
+  $("#open-traffic").onclick = () => open(true);
+  $("#close-traffic").onclick = $("#scrim").onclick = () => open(false);
+  document.addEventListener("keydown", e => { if (e.key === "Escape") open(false); });
+  $$("[data-preset]").forEach(b => b.onclick = () => { const p = PRESETS[b.dataset.preset]; for (const [k, v] of Object.entries(p)) $(`#tform [data-k="${k}"]`).value = v; });
+  $("#t-start").onclick = async () => {
+    const o = {target:"gateway", fresh:false, scenario:"manual", label:"test traffic"};
+    for (const el of $$("#tform [data-k]")) o[el.dataset.k] = Number(el.value);
+    o.concurrency = o.qps === 0 ? 256 : Math.min(256, Math.max(16, Math.ceil(o.qps / 50)));
+    o.fresh = o.duration_s > 0;
+    toast("Starting traffic…"); await api("/api/load", o); poll();
+  };
+  $("#t-stop").onclick = $("#stop").onclick = async () => { await api("/api/load/stop", {}); toast("Stopped"); poll(); };
+  $("#kill").onclick = async () => { await api("/api/redis", {action:"kill"}); toast("Stopping Redis"); poll(); };
+  $("#restore").onclick = async () => { await api("/api/redis", {action:"restore"}); toast("Starting Redis (a few seconds)"); poll(); };
+  $("#flush").onclick = async () => { await api("/api/redis", {action:"flush"}); toast("Redis flushed"); poll(); };
+  $("#reset-limits").onclick = async () => { await api("/api/limits/reset", {}); toast("Policies reset to defaults"); editing = null; poll(); };
+  $("#run-all").onclick = async () => { await api("/api/verify", {tests:["all"]}); toast("Running all checks (about 3 minutes)"); poll(); };
+  document.addEventListener("click", async e => {
+    const c = e.target.closest("[data-check]");
+    if (c) { await api("/api/verify", {tests:[c.dataset.check]}); poll(); return; }
+    const ed = e.target.closest("[data-edit]");
+    if (ed) { editing = +ed.dataset.edit; editRow(); return; }
+    if (e.target.closest("[data-cancel]")) { editing = null; render(); return; }
+    if (e.target.closest("[data-save]")) {
+      const tr = e.target.closest("tr"), g = f => $(`[data-f="${f}"]`, tr);
+      await api("/api/limits", {level:LEVELS[editing], cap:+g("cap").value, rate:+g("rate").value, window_limit:+g("window_limit").value, window_ms:state.limits[editing].window_ms || 1000, local:g("local").checked});
+      toast(`${SCOPE[LEVELS[editing]]} policy applied to all edge nodes`); editing = null; poll();
+    }
+  });
+  const th = $("#theme");
+  const setTheme = m => { if (m === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.dataset.theme = m; th.textContent = m; try { localStorage.setItem("rg-theme", m); } catch(e){} render(); };
+  let saved = "auto"; try { saved = localStorage.getItem("rg-theme") || "auto"; } catch(e){}
+  setTheme(saved);
+  th.onclick = () => setTheme({auto:"light", light:"dark", dark:"auto"}[th.textContent]);
+  window.addEventListener("resize", render);
+}
+function editRow(){
+  const c = state.limits[editing], tr = $$("#policies tr")[editing];
+  tr.innerHTML = `<td class="scope">${SCOPE[LEVELS[editing]]}</td><td class="n"><input data-f="cap" value="${c.cap}"></td><td class="n"><input data-f="rate" value="${c.rate}"></td>
+    <td class="n"><input data-f="window_limit" value="${c.window_limit}" title="max requests per ${c.window_ms || 1000} ms, 0 = off"></td>
+    <td class="enf"><label><input type="checkbox" data-f="local" ${c.local ? "checked" : ""} style="width:auto"> per node only</label></td><td></td>
+    <td class="n" style="white-space:nowrap"><button class="btn small primary" data-save>Save</button> <button class="btn small" data-cancel>Cancel</button></td>`;
+}
+
+let polling = false;
+async function poll(){
+  if (polling) return; polling = true;
+  try { state = await api("/api/state"); render(); }
+  catch (e) { $("#status").innerHTML = `<span class="pill"><span class="dot bad"></span>Console unreachable, retrying</span>`; }
+  finally { polling = false; }
+}
+bind(); poll(); setInterval(poll, 1000);
+</script>
+</body>
+</html>

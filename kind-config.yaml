@@ -1,0 +1,8 @@
+# kind cluster for the RateGuard demo (used by rebuild.bat).
+# The API server port is pinned: kind's default is a random high port, which
+# Windows (Hyper-V / WinNAT) may later reserve, leaving the cluster unreachable.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  apiServerAddress: "127.0.0.1"
+  apiServerPort: 6443
